@@ -145,6 +145,11 @@ def apply-file-filters [
       exit $ECODE.OUTDATED
     }
   }
+  # Check if filtered content is empty after applying filters
+  if ($filtered_content | is-empty) or ($filtered_content | str trim | is-empty) {
+    print $'(ansi g)No matching files to review after filtering. Review skipped.(ansi reset)'
+    exit $ECODE.SUCCESS
+  }
 
   $filtered_content
 }

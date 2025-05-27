@@ -93,13 +93,13 @@ def glob-to-regex [patterns: list<string>] {
 # Generate the awk include regex pattern string for the specified patterns
 export def generate-include-regex [patterns: list<string>] {
   let pattern = glob-to-regex $patterns
-  $"/^diff --git/{p=/^diff --git a\\/($pattern)/}p"
+  $"/^diff --git/{p=/^diff --git a\\/\(($pattern)\)$/}p"
 }
 
 # Generate the awk exclude regex pattern string for the specified patterns
 export def generate-exclude-regex [patterns: list<string>] {
   let pattern = glob-to-regex $patterns
-  $"/^diff --git/{p=/^diff --git a\\/($pattern)/}!p"
+  $"/^diff --git/{p=/^diff --git a\\/\(($pattern)\)$/}!p"
 }
 
 # Check if the git command is safe to run in the shell

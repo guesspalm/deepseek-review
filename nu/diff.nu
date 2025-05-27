@@ -81,7 +81,145 @@ def get-pr-diff [
   }
 
   # Get the diff content of the PR
-  http get -H $DIFF_HEADER $'($GITHUB_API_BASE)/repos/($repo)/pulls/($pr_number)' | str trim
+  # Try diff format API first, fallback to JSON API if 406 error occurs
+  try {
+    http get -H $DIFF_HEADER $'($GITHUB_API_BASE)/repos/($repo)/pulls/($pr_number)' | str trim
+  } catch {|err|
+    let err_text = try { $err | describe } catch { "" }
+    let rendered = try { $err | get rendered } catch { "" }
+
+    # 首先尝试检查错误是否包含406状态码的各种可能形式
+    if ($err_text =~ '406') or ($rendered =~ '406') or ($err_text =~ 'Not Acceptable') {
+      print $'(ansi y)Diff API returned 406 error, switching to JSON API...(ansi reset)'
+      try {
+        get-pr-changes-json --repo $repo --pr-number $pr_number
+      } catch {|json_err|
+        print $'(ansi r)Failed to get PR changes using JSON API: (ansi reset)'
+        $json_err | print
+        exit $ECODE.SERVER_ERROR
+      }
+    } else {
+      print $'(ansi r)Failed to get PR diff: (ansi reset)'
+      $err | print
+      exit $ECODE.SERVER_ERROR
+    }
+  }
+}
+
+# Get PR changes using the JSON API and format them as diff content
+# This is a fallback for large PRs when the diff API returns 406 error
+def get-pr-changes-json [
+  --repo: string,       # GitHub repository name
+  --pr-number: string,  # GitHub PR number
+] {
+  let API_HEADER = [Authorization $'Bearer ($env.GH_TOKEN)' Accept application/vnd.github.v3+json]
+  let nl = (char nl) # 使用char nl来表示换行符
+  
+  # 支持分页处理的函数
+  def get-all-pr-files [
+    repo: string,
+    pr_number: string,
+    headers: list,
+    page: int = 1,
+    per_page: int = 100,
+    acc: list = []
+  ] {
+    # 发送API请求，带分页参数
+    let url = $'($GITHUB_API_BASE)/repos/($repo)/pulls/($pr_number)/files?page=($page)&per_page=($per_page)'
+    let response = http get -H $headers $url
+    
+    # 如果返回为空，返回当前累积结果
+    if ($response | length) == 0 { return $acc }
+    
+    # 合并当前页结果
+    let all_files = ($acc | append $response)
+    
+    # 如果当前页结果少于每页数量，说明已经获取完所有文件
+    if ($response | length) < $per_page {
+      return $all_files
+    }
+    
+    # 递归获取下一页
+    get-all-pr-files $repo $pr_number $headers ($page + 1) $per_page $all_files
+  }
+
+  print $'(ansi y)Retrieving PR files using paginated API...(ansi reset)'
+  
+  # 获取所有PR文件
+  let files = get-all-pr-files $repo $pr_number $API_HEADER
+  
+  if ($files | length) == 0 {
+    print $'(ansi y)No files found in PR.(ansi reset)'
+    return ""
+  }
+  
+  print $'(ansi g)Found ($files | length) files in PR, formatting as diff...(ansi reset)'
+  
+  # 用字符串累加的方式构建输出，避免一次性处理大量数据
+  mut result = ""
+  
+  # 逐个处理文件
+  for file in $files {
+    try {
+      let path = $file.filename
+      let status = $file.status
+      let patch = $file.patch? | default ''
+      
+      # 获取并处理SHA值
+      let sha_before = if ($file.sha? | is-empty) { '0000000' } else {
+        $file.sha? | str substring 0..8  # 只取前8位
+      }
+      let sha_after = if ($file.sha? | is-empty) { '0000000' } else {
+        $file.sha? | str substring 0..8  # 只取前8位
+      }
+      
+      # 构建这个文件的diff内容
+      let file_diff = (
+        $'diff --git a/($path) b/($path)($nl)'
+        + (if $file.previous_filename? != null {
+            $'similarity index 100%($nl)rename from ($file.previous_filename)($nl)rename to ($path)($nl)'
+          } else {
+            # 使用正确的index行格式：index <old_sha>..<new_sha> <mode>
+            $'index ($sha_before)..($sha_after) 100644($nl)'
+          })
+        + (if $status == 'added' {
+            $'--- /dev/null($nl)+++ b/($path)($nl)'
+          } else if $status == 'removed' {
+            $'--- a/($path)($nl)+++ /dev/null($nl)'
+          } else {
+            $'--- a/($path)($nl)+++ b/($path)($nl)'
+          })
+      )
+
+      # 处理patch内容，确保它包含正确的@@行
+      let processed_patch = if ($patch | is-empty) {
+        # 如果没有patch内容，生成一个空的patch
+        $'@@ -0,0 +1,0 @@($nl)'
+      } else {
+        # 确保patch内容以@@开头
+        if ($patch | str starts-with "@@") {
+          # 替换patch中的\n为实际的换行符
+          $patch | str replace -a '\n' $nl
+        } else {
+          $'@@ -1,1 +1,1 @@($nl)' + ($patch | str replace -a '\n' $nl)
+        }
+      }
+
+      # 追加到结果字符串，确保每个文件的diff之间有一个空行
+      $result = $result + $file_diff + $processed_patch + $nl
+    } catch {|e|
+      # 如果处理某个文件失败，记录错误并继续处理其他文件
+      print $'(ansi y)Warning: Could not process file: ($file.filename?)(ansi reset)'
+    }
+  }
+
+  # 如果结果为空，表明PR可能只有二进制文件或其他无法处理的内容
+  if ($result | is-empty) {
+    print $'(ansi y)No processable diff content found in PR.(ansi reset)'
+    return ""
+  }
+  
+  $result
 }
 
 # Get diff content from local git changes

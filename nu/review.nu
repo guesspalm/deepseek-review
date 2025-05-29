@@ -70,6 +70,7 @@ export def --env deepseek-review [
   --include(-i): string,    # Comma separated file patterns to include in the code review
   --exclude(-x): string,    # Comma separated file patterns to exclude in the code review
   --temperature(-T): float, # Temperature for the model, between `0` and `2`, default value `0.3`
+  --reasoning-effort(-E): string,    # Reasoning effort level: high, medium, low
 ]: nothing -> nothing {
 
   $env.config.table.mode = 'psql'
@@ -85,10 +86,12 @@ export def --env deepseek-review [
   let url = $chat_url | default $env.CHAT_URL? | default $'($base_url)/chat/completions'
   let max_length = try { $max_length | default ($env.MAX_LENGTH? | default 0 | into int) } catch { 0 }
   let temperature = try { $temperature | default $env.TEMPERATURE? | default $DEFAULT_OPTIONS.TEMPERATURE | into float } catch { $DEFAULT_OPTIONS.TEMPERATURE }
+  let reasoning_effort = $reasoning_effort | default $env.REASONING_EFFORT?
   # Determine output mode
   let output_mode = if $is_action { 'action' } else if ($output | is-not-empty) { 'file' } else { 'console' }
 
   validate-temperature $temperature
+  validate-reasoning $reasoning_effort
   let setting = {
     repo: $repo,
     model: $model,
@@ -128,6 +131,14 @@ export def --env deepseek-review [
   print $'Review content length: (ansi g)($length)(ansi reset), current max length: (ansi g)($max_length)(ansi reset)'
   let sys_prompt = $sys_prompt | default $env.SYSTEM_PROMPT? | default $DEFAULT_OPTIONS.SYS_PROMPT
   let user_prompt = $user_prompt | default $env.USER_PROMPT? | default $DEFAULT_OPTIONS.USER_PROMPT
+  
+  # 构建 reasoning 参数（只有effort配置时才添加）
+  let reasoning = if ($reasoning_effort | is-not-empty) {
+    {
+      effort: $reasoning_effort
+    }
+  } else { null }
+  
   let payload = {
     model: $model,
     stream: $stream,
@@ -135,7 +146,8 @@ export def --env deepseek-review [
     messages: [
       { role: 'system', content: $sys_prompt },
       { role: 'user', content: $"($user_prompt):\n($content)" }
-    ]
+    ],
+    ...($reasoning | default {} | if ($in | is-empty) { {} } else { {reasoning: $in} })
   }
   if $debug { print $'(char nl)Code Changes:'; hr-line; print $content }
   print $'(char nl)Waiting for response from (ansi g)($url)(ansi reset) ...'
@@ -221,6 +233,16 @@ def validate-temperature [temp: float] {
     exit $ECODE.INVALID_PARAMETER
   }
   $temp
+}
+
+# Validate the reasoning parameters
+export def validate-reasoning [effort?: string] {
+  if ($effort | is-not-empty) {
+    if $effort not-in ['high', 'medium', 'low'] {
+      print $'(ansi r)Invalid reasoning effort value. Must be one of: high, medium, low(ansi reset)'
+      exit $ECODE.INVALID_PARAMETER
+    }
+  }
 }
 
 # Post review comments to GitHub PR

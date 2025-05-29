@@ -118,18 +118,19 @@ With this setup, DeepSeek code review will not run automatically upon PR creatio
 
 ## Input Parameters
 
-| Name           | Type   | Description                                                             |
-| -------------- | ------ | ----------------------------------------------------------------------- |
-| chat-token     | String | Required, DeepSeek API Token                                            |
-| model          | String | Optional, The model used for code review, defaults to `deepseek-chat`   |
-| base-url       | String | Optional, DeepSeek API Base URL, defaults to `https://api.deepseek.com` |
-| max-length     | Int    | Optional, Maximum length(Unicode width) of the content for review, if the content length exceeds this value, the review will be skipped. Default `0` means no limit. |
-| sys-prompt     | String | Optional, System prompt corresponding to `$sys_prompt` in the payload, default value see note below |
-| user-prompt    | String | Optional, User prompt corresponding to `$user_prompt` in the payload, default value see note below |
-| temperature    | Number | Optional, The temperature for the model to generate the response, between `0` and `2`, default value `0.3` |
-| include-patterns | String | Optional, The comma separated file patterns to include in the code review. No default |
-| exclude-patterns | String | Optional, The comma separated file patterns to exclude in the code review. Default to `pnpm-lock.yaml,package-lock.json,*.lock` |
-| github-token   | String | Optional, The `GITHUB_TOKEN` secret or personal access token to authenticate. Defaults to `${{ github.token }}`. |
+| Name                 | Type   | Description                                                             |
+| -------------------- | ------ | ----------------------------------------------------------------------- |
+| chat-token          | String | Required, DeepSeek API Token                                            |
+| model               | String | Optional, The model used for code review, defaults to `deepseek-chat`   |
+| base-url            | String | Optional, DeepSeek API Base URL, defaults to `https://api.deepseek.com` |
+| max-length          | Int    | Optional, Maximum length(Unicode width) of the content for review, if the content length exceeds this value, the review will be skipped. Default `0` means no limit. |
+| sys-prompt          | String | Optional, System prompt corresponding to `$sys_prompt` in the payload, default value see note below |
+| user-prompt         | String | Optional, User prompt corresponding to `$user_prompt` in the payload, default value see note below |
+| temperature         | Number | Optional, The temperature for the model to generate the response, between `0` and `2`, default value `0.3` |
+| reasoning-effort    | String | Optional, Reasoning effort level: `high`, `medium`, `low` |
+| include-patterns    | String | Optional, The comma separated file patterns to include in the code review. No default |
+| exclude-patterns    | String | Optional, The comma separated file patterns to exclude in the code review. Default to `pnpm-lock.yaml,package-lock.json,*.lock` |
+| github-token        | String | Optional, The `GITHUB_TOKEN` secret or personal access token to authenticate. Defaults to `${{ github.token }}`. |
 
 **DeepSeek API Call Payload**:
 
@@ -139,6 +140,10 @@ With this setup, DeepSeek code review will not run automatically upon PR creatio
   model: $model,
   stream: false,
   temperature: $temperature,
+  // Optional reasoning parameters (only included when effort is configured)
+  reasoning: {
+    effort: $reasoning_effort      // "high", "medium", or "low"
+  },
   messages: [
     // `$sys_prompt` default value: You are a professional code review assistant responsible for
     // analyzing code changes in GitHub Pull Requests. Identify potential issues such as code
@@ -191,6 +196,7 @@ Flags:
   -i, --include <string>: Comma separated file patterns to include in the code review
   -x, --exclude <string>: Comma separated file patterns to exclude in the code review
   -T, --temperature <float>: Temperature for the model, between `0` and `2`, default value `0.3`
+  -E, --reasoning-effort <string>: Reasoning effort level: high, medium, low
   -C, --config <string>: Config file path, default to `config.yml`
   -o, --output <string>: Output file path
   -h, --help: Display the help message for this command
@@ -255,6 +261,10 @@ cr -c 'git diff 2393375 71f5a31'
 cr -c 'git diff 2393375 71f5a31 nu/*'
 cr -c 'git diff 2393375 71f5a31 :!nu/*'
 # Dangerous commands like `cr -c 'git show head~3; rm ./*'` will not be allowed
+
+# Use reasoning parameters for enhanced code review
+cr --reasoning-effort high
+cr --diff-from f536acc --reasoning-effort medium
 ```
 
 ### Review Remote GitHub PR Locally

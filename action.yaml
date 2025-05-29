@@ -49,6 +49,9 @@ inputs:
     required: false
     default: 'pnpm-lock.yaml,package-lock.json,*.lock'
     description: 'The comma separated file patterns to exclude in the code review.'
+  reasoning-effort:
+    required: false
+    description: 'Reasoning effort level: high, medium, low'
   github-token:
     required: false
     default: '${{ github.token }}'
@@ -79,6 +82,7 @@ runs:
         let excludePatterns = '${{ inputs.exclude-patterns }}'
         let maxLength = try { '${{ inputs.max-length }}' | into int } catch { 0 }
         let temperature = try { '${{ inputs.temperature }}' | into float } catch { 0.3 }
+        let reasoningEffort = '${{ inputs.reasoning-effort }}'
         (deepseek-review $token
           --model $model
           --repo $repo
@@ -91,5 +95,6 @@ runs:
           --temperature $temperature
           --include $includePatterns
           --exclude $excludePatterns
+          --reasoning-effort $reasoningEffort
         )
 

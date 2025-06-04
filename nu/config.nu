@@ -152,6 +152,8 @@ export def --env config-load [
     INCLUDE_PATTERNS: $settings.include-patterns,
     DEFAULT_GITHUB_REPO: $settings.default-github-repo,
     REASONING_EFFORT: $settings.reasoning?.effort,
+    REASONING_MAX_TOKENS: $settings.reasoning?.max_tokens,
+    REASONING_EXCLUDE: $settings.reasoning?.exclude,
   }
   load-env $env_vars
   if $debug {

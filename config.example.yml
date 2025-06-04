@@ -20,10 +20,14 @@ settings:
   # The temperature of the model, The value should be between 0 and 2, with default value 0.3
   temperature: 0.3
   # Reasoning parameters for DeepSeek API (optional)
-  # If effort is configured, it will be included in the API request
+  # Note: effort and max_tokens are mutually exclusive, only one can be configured
   reasoning:
-    # Reasoning effort level: high, medium, low
+    # Reasoning effort level: high, medium, low (mutually exclusive with max_tokens)
     effort: "medium"
+    # Maximum tokens for reasoning (Non-OpenAI-style, mutually exclusive with effort)
+    # max_tokens: 1000
+    # Whether to exclude reasoning content from response output
+    exclude: true
   # The user prompt name to use for DeepSeek API select from 'prompts.user'
   user-prompt: 'default'
   # The system prompt name to use for DeepSeek API select from 'prompts.system'

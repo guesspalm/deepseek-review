@@ -70,7 +70,9 @@ export def --env deepseek-review [
   --include(-i): string,    # Comma separated file patterns to include in the code review
   --exclude(-x): string,    # Comma separated file patterns to exclude in the code review
   --temperature(-T): float, # Temperature for the model, between `0` and `2`, default value `0.3`
-  --reasoning-effort(-E): string,    # Reasoning effort level: high, medium, low
+  --reasoning-effort(-E): string,    # Reasoning effort level: high, medium, low (mutually exclusive with max-tokens)
+  --reasoning-max-tokens(-M): int,   # Maximum tokens for reasoning (Non-OpenAI-style, mutually exclusive with effort)
+  --reasoning-exclude(-X),           # Exclude reasoning content from response output
 ]: nothing -> nothing {
 
   $env.config.table.mode = 'psql'
@@ -87,11 +89,13 @@ export def --env deepseek-review [
   let max_length = try { $max_length | default ($env.MAX_LENGTH? | default 0 | into int) } catch { 0 }
   let temperature = try { $temperature | default $env.TEMPERATURE? | default $DEFAULT_OPTIONS.TEMPERATURE | into float } catch { $DEFAULT_OPTIONS.TEMPERATURE }
   let reasoning_effort = $reasoning_effort | default $env.REASONING_EFFORT?
+  let reasoning_max_tokens = $reasoning_max_tokens | default $env.REASONING_MAX_TOKENS?
+  let reasoning_exclude = $reasoning_exclude | default ($env.REASONING_EXCLUDE? | default true)
   # Determine output mode
   let output_mode = if $is_action { 'action' } else if ($output | is-not-empty) { 'file' } else { 'console' }
 
   validate-temperature $temperature
-  validate-reasoning $reasoning_effort
+  validate-reasoning $reasoning_effort $reasoning_max_tokens
   let setting = {
     repo: $repo,
     model: $model,
@@ -132,11 +136,18 @@ export def --env deepseek-review [
   let sys_prompt = $sys_prompt | default $env.SYSTEM_PROMPT? | default $DEFAULT_OPTIONS.SYS_PROMPT
   let user_prompt = $user_prompt | default $env.USER_PROMPT? | default $DEFAULT_OPTIONS.USER_PROMPT
   
-  # 构建 reasoning 参数（只有effort配置时才添加）
+  # 构建 reasoning 参数
   let reasoning = if ($reasoning_effort | is-not-empty) {
-    {
-      effort: $reasoning_effort
-    }
+    # 使用 effort 参数
+    let base = { effort: $reasoning_effort }
+    if $reasoning_exclude { $base | insert exclude $reasoning_exclude } else { $base }
+  } else if ($reasoning_max_tokens | is-not-empty) {
+    # 使用 max_tokens 参数
+    let base = { max_tokens: $reasoning_max_tokens }
+    if $reasoning_exclude { $base | insert exclude $reasoning_exclude } else { $base }
+  } else if $reasoning_exclude {
+    # 只有 exclude 参数
+    { exclude: $reasoning_exclude }
   } else { null }
   
   let payload = {
@@ -236,10 +247,25 @@ def validate-temperature [temp: float] {
 }
 
 # Validate the reasoning parameters
-export def validate-reasoning [effort?: string] {
+export def validate-reasoning [effort?: string, max_tokens?: int] {
+  # Check mutual exclusion between effort and max_tokens
+  if ($effort | is-not-empty) and ($max_tokens | is-not-empty) {
+    print $'(ansi r)Error: reasoning effort and max_tokens cannot be used together. They are mutually exclusive.(ansi reset)'
+    exit $ECODE.INVALID_PARAMETER
+  }
+  
+  # Validate effort values
   if ($effort | is-not-empty) {
     if $effort not-in ['high', 'medium', 'low'] {
       print $'(ansi r)Invalid reasoning effort value. Must be one of: high, medium, low(ansi reset)'
+      exit $ECODE.INVALID_PARAMETER
+    }
+  }
+  
+  # Validate max_tokens range
+  if ($max_tokens | is-not-empty) {
+    if ($max_tokens <= 0) {
+      print $'(ansi r)Invalid reasoning max_tokens value. Must be a positive integer.(ansi reset)'
       exit $ECODE.INVALID_PARAMETER
     }
   }

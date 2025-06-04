@@ -26,6 +26,9 @@ def main [
   --include(-i): string,    # Comma separated file patterns to include in the code review
   --exclude(-x): string,    # Comma separated file patterns to exclude in the code review
   --temperature(-T): float, # Temperature for the model, between `0` and `2`, default value `0.3`
+  --reasoning-effort(-E): string,    # Reasoning effort level: high, medium, low (mutually exclusive with max-tokens)
+  --reasoning-max-tokens(-M): int,   # Maximum tokens for reasoning (Non-OpenAI-style, mutually exclusive with effort)
+  --reasoning-exclude(-X),           # Exclude reasoning content from response output
   --config(-C): string      # Config file path, default to `config.yml`
   --output(-o): string,     # Output file path
 ] {
@@ -50,6 +53,9 @@ def main [
       --sys-prompt=$sys_prompt
       --user-prompt=$user_prompt
       --temperature=$temperature
+      --reasoning-effort=($reasoning_effort | default $env.REASONING_EFFORT?)
+      --reasoning-max-tokens=($reasoning_max_tokens | default $env.REASONING_MAX_TOKENS?)
+      --reasoning-exclude=($reasoning_exclude | default ($env.REASONING_EXCLUDE? | default true))
       --include=($include | default $env.INCLUDE_PATTERNS?)
       --exclude=($exclude | default $env.EXCLUDE_PATTERNS?)
   )

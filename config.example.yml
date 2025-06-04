@@ -25,7 +25,7 @@ settings:
     # Reasoning effort level: high, medium, low (mutually exclusive with max_tokens)
     effort: "medium"
     # Maximum tokens for reasoning (Non-OpenAI-style, mutually exclusive with effort)
-    # max_tokens: 1000
+    # max-tokens: 1000
     # Whether to exclude reasoning content from response output
     exclude: true
   # The user prompt name to use for DeepSeek API select from 'prompts.user'

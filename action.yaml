@@ -51,7 +51,14 @@ inputs:
     description: 'The comma separated file patterns to exclude in the code review.'
   reasoning-effort:
     required: false
-    description: 'Reasoning effort level: high, medium, low'
+    description: 'Reasoning effort level: high, medium, low (mutually exclusive with max-tokens)'
+  reasoning-max-tokens:
+    required: false
+    description: 'Maximum tokens for reasoning (Non-OpenAI-style, mutually exclusive with effort)'
+  reasoning-exclude:
+    required: false
+    default: 'true'
+    description: 'Exclude reasoning content from response output'
   github-token:
     required: false
     default: '${{ github.token }}'
@@ -83,6 +90,8 @@ runs:
         let maxLength = try { '${{ inputs.max-length }}' | into int } catch { 0 }
         let temperature = try { '${{ inputs.temperature }}' | into float } catch { 0.3 }
         let reasoningEffort = '${{ inputs.reasoning-effort }}'
+        let reasoningMaxTokens = try { '${{ inputs.reasoning-max-tokens }}' | into int } catch { null }
+        let reasoningExclude = '${{ inputs.reasoning-exclude }}' == 'true'
         (deepseek-review $token
           --model $model
           --repo $repo
@@ -96,5 +105,7 @@ runs:
           --include $includePatterns
           --exclude $excludePatterns
           --reasoning-effort $reasoningEffort
+          --reasoning-max-tokens $reasoningMaxTokens
+          --reasoning-exclude $reasoningExclude
         )
 

@@ -92,26 +92,38 @@ runs:
         let reasoningEffort = try { '${{ inputs.reasoning-effort }}' } catch { null }
         let reasoningMaxTokens = try { '${{ inputs.reasoning-max-tokens }}' | into int } catch { null }
         let reasoningExclude = try { '${{ inputs.reasoning-exclude }}' == 'true' } catch { true }
-        let cmd_args = [
-          $token
-          --model $model
-          --repo $repo
-          --pr-number $pr
-          --gh-token $ghToken
-          --base-url $baseUrl
-          --max-length $maxLength
-          --sys-prompt $sysPrompt
-          --user-prompt $userPrompt
-          --temperature $temperature
-          --include $includePatterns
-          --exclude $excludePatterns
-          --reasoning-effort $reasoningEffort
-          --reasoning-max-tokens $reasoningMaxTokens
-        ]
-        let final_args = if $reasoningExclude {
-          $cmd_args | append [--reasoning-exclude]
+        if $reasoningExclude {
+          (deepseek-review $token
+            --model $model
+            --repo $repo
+            --pr-number $pr
+            --gh-token $ghToken
+            --base-url $baseUrl
+            --max-length $maxLength
+            --sys-prompt $sysPrompt
+            --user-prompt $userPrompt
+            --temperature $temperature
+            --include $includePatterns
+            --exclude $excludePatterns
+            --reasoning-effort $reasoningEffort
+            --reasoning-max-tokens $reasoningMaxTokens
+            --reasoning-exclude
+          )
         } else {
-          $cmd_args
+          (deepseek-review $token
+            --model $model
+            --repo $repo
+            --pr-number $pr
+            --gh-token $ghToken
+            --base-url $baseUrl
+            --max-length $maxLength
+            --sys-prompt $sysPrompt
+            --user-prompt $userPrompt
+            --temperature $temperature
+            --include $includePatterns
+            --exclude $excludePatterns
+            --reasoning-effort $reasoningEffort
+            --reasoning-max-tokens $reasoningMaxTokens
+          )
         }
-        (deepseek-review ...$final_args)
 

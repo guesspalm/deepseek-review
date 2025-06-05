@@ -92,7 +92,8 @@ runs:
         let reasoningEffort = try { '${{ inputs.reasoning-effort }}' } catch { null }
         let reasoningMaxTokens = try { '${{ inputs.reasoning-max-tokens }}' | into int } catch { null }
         let reasoningExclude = try { '${{ inputs.reasoning-exclude }}' == 'true' } catch { true }
-        (deepseek-review $token
+        let cmd_args = [
+          $token
           --model $model
           --repo $repo
           --pr-number $pr
@@ -106,6 +107,11 @@ runs:
           --exclude $excludePatterns
           --reasoning-effort $reasoningEffort
           --reasoning-max-tokens $reasoningMaxTokens
-          --reasoning-exclude $reasoningExclude
-        )
+        ]
+        let final_args = if $reasoningExclude {
+          $cmd_args | append [--reasoning-exclude]
+        } else {
+          $cmd_args
+        }
+        (deepseek-review ...$final_args)
 

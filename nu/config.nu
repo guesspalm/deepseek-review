@@ -153,7 +153,7 @@ export def --env config-load [
     DEFAULT_GITHUB_REPO: $settings.default-github-repo,
     REASONING_EFFORT: ($settings.reasoning?.effort? | default null),
     REASONING_MAX_TOKENS: ($settings.reasoning?.max-tokens? | default null),
-    REASONING_EXCLUDE: ($settings.reasoning?.exclude? | default null),
+    REASONING_EXCLUDE: ($settings.reasoning?.exclude? | default true),
   }
   load-env $env_vars
   if $debug {

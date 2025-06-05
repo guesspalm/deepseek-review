@@ -89,9 +89,9 @@ runs:
         let excludePatterns = '${{ inputs.exclude-patterns }}'
         let maxLength = try { '${{ inputs.max-length }}' | into int } catch { 0 }
         let temperature = try { '${{ inputs.temperature }}' | into float } catch { 0.3 }
-        let reasoningEffort = '${{ inputs.reasoning-effort }}'
+        let reasoningEffort = try { '${{ inputs.reasoning-effort }}' } catch { null }
         let reasoningMaxTokens = try { '${{ inputs.reasoning-max-tokens }}' | into int } catch { null }
-        let reasoningExclude = '${{ inputs.reasoning-exclude }}' == 'true'
+        let reasoningExclude = try { '${{ inputs.reasoning-exclude }}' == 'true' } catch { true }
         (deepseek-review $token
           --model $model
           --repo $repo
